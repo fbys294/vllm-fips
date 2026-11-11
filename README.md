@@ -1,25 +1,40 @@
 <!-- markdownlint-disable MD001 MD041 -->
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/vllm-project/vllm/main/docs/assets/logos/vllm-logo-text-dark.png">
-    <img alt="vLLM" src="https://raw.githubusercontent.com/vllm-project/vllm/main/docs/assets/logos/vllm-logo-text-light.png" width=55%>
-  </picture>
-</p>
-
-<h3 align="center">
-Easy, fast, and cheap LLM serving for everyone
-</h3>
-
-<p align="center">
-| <a href="https://docs.vllm.ai"><b>Documentation</b></a> | <a href="https://blog.vllm.ai/"><b>Blog</b></a> | <a href="https://arxiv.org/abs/2309.06180"><b>Paper</b></a> | <a href="https://x.com/vllm_project"><b>Twitter/X</b></a> | <a href="https://discuss.vllm.ai"><b>User Forum</b></a> | <a href="https://slack.vllm.ai"><b>Developer Slack</b></a> |
-</p>
-
-🔥 We have built a vLLM website to help you get started with vLLM. Please visit [vllm.ai](https://vllm.ai) to learn more.
-For events, please visit [vllm.ai/events](https://vllm.ai/events) to join us.
+This is a fork of VLLM
+- The goal was to create a version that wouldn't crash on fips enabled boxes due to the opencv-python-headless cv2 problem.
+- This has not been fully tested, currently a new branch was created called opencve_python_headless_fix
+- opencv-python-headless (cv2) is now completely absent from the image and PyAV (av) is handling all video operations.
 
 ---
+## Instructions:
+- mkdir vllm_fips
+- git clone ..
+- cd vllm_fips
+- DOCKER_BUILDKIT=1 docker build . \
+    --file docker/Dockerfile \
+    --target vllm-openai \
+    --build-arg VLLM_USE_PRECOMPILED=1 \
+    --build-arg VLLM_MERGE_BASE_COMMIT="2e6888ee879a29d511c81bd45f8265d92d0bafd9a5e52a6ceec6c0e25801475f" \
+    --tag vllm-fips:v0.2
 
-## About
+## To test if cv2 is removed:
+docker run --rm --entrypoint python3 vllm-fips:v0.2 -c "
+import av, vllm
+try:
+    import cv2
+    raise SystemExit('ERROR: cv2 is still installed!')
+except ImportError:
+    print('SUCCESS: cv2 is not installed; PyAV version:', av.__version__)
+"
+
+## Running Container {example}
+- docker run --rm --gpus all \
+    -v ~/.cache/huggingface:/root/.cache/huggingface \
+    -p 8000:8000 \
+    --ipc=host \
+    --env "HF_TOKEN=${HF_TOKEN}" \
+    vllm-fips:v0.2 
+
+## About (Forked Repo Info)
 
 vLLM is a fast and easy-to-use library for LLM inference and serving.
 
@@ -63,25 +78,12 @@ Find the full list of supported models [here](https://docs.vllm.ai/en/latest/mod
 
 ## Getting Started
 
-Install vLLM with [`uv`](https://docs.astral.sh/uv/) (recommended) or `pip`:
-
-```bash
-uv pip install vllm
-vllm download-kernels  # precompiled kernels for faster startup
-```
-
-Or [build from source](https://docs.vllm.ai/en/latest/getting_started/installation/gpu/index.html#build-wheel-from-source) for development.
-
 Visit our [documentation](https://docs.vllm.ai/en/latest/) to learn more.
 
 - [Installation](https://docs.vllm.ai/en/latest/getting_started/installation.html)
 - [Quickstart](https://docs.vllm.ai/en/latest/getting_started/quickstart.html)
 - [List of Supported Models](https://docs.vllm.ai/en/latest/models/supported_models.html)
 
-## Contributing
-
-We welcome and value any contributions and collaborations.
-Please check out [Contributing to vLLM](https://docs.vllm.ai/en/latest/contributing/index.html) for how to get involved.
 
 ## Citation
 
