@@ -4,14 +4,14 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     labels: ["dependencies"]
     open-pull-requests-limit: 5
-    reviewers: ["khluu", "simon-mo"]
+    reviewers: ["fbys294"]
     allow:
       - dependency-type: "all"
     ignore:
