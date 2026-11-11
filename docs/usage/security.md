@@ -452,9 +452,9 @@ Operators running vLLM on FIPS-enabled hosts should select FIPS-approved algorit
 - **Prefix-cache hashing** — set `--prefix-caching-hash-algo` (config field `prefix_caching_hash_algo`) to `sha256` or `sha256_cbor`. The `xxhash` and `xxhash_cbor` options are not FIPS-approved.
 - **TLS ciphers** — use `--ssl-ciphers` to restrict the API server's TLS handshake to FIPS-approved cipher suites that match your environment's policy.
 
-### Automatic fallback for non-security MD5 use
+### Configuration hashing with `safe_hash`
 
-vLLM uses MD5 in a few places to derive non-security cache keys (for example, configuration hashes). These call sites pass `usedforsecurity=False` and additionally fall back to SHA-256 when the underlying OpenSSL provider refuses MD5 outright (see `safe_hash()` in `vllm/utils/hashing.py`). No user action is required; this behavior is documented so that auditors and security reviewers can identify the MD5 references and understand their purpose.
+`safe_hash()` in `vllm/utils/hashing.py` uses FIPS 140-3 compliant SHA-256 (`hashlib.sha256`) to derive cache keys (for example, configuration and checkpoint hashes). No user action is required.
 
 ### Dependencies that provide non-FIPS hash implementations
 

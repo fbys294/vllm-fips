@@ -147,7 +147,7 @@ def get_socket_path(
     The GPU uuid is hashed to keep the name well under the AF_UNIX path
     limit (~108 bytes) even with the draft role suffix.
     """
-    gpu_id = safe_hash(gpu_uuid.encode()).hexdigest()
+    gpu_id = safe_hash(gpu_uuid.encode()).hexdigest()[:32]
     name = SOCKET_NAME_TEMPLATE.format(
         gpu_uuid=gpu_id,
         role=format_socket_role_suffix(is_draft),

@@ -5,6 +5,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <unistd.h>
 
 #include <filesystem>
@@ -37,47 +38,119 @@ inline int ensure_parent_dirs(const std::string& path) {
 // on success, or the errno of the failing step on failure -- captured
 // before any subsequent cleanup call can overwrite it. On failure, the temp
 // file is removed.
+//
+// Uses directory file descriptors (*at syscalls) with AT_SYMLINK_NOFOLLOW,
+// O_NOFOLLOW, and RENAME_NOREPLACE to avoid CWE-367 TOCTOU race conditions on
+// path resolution and prevent overwriting files created concurrently.
 inline int _store_block(const char* tmp_path, const char* dest_path,
                         const char* src, size_t size, bool use_o_direct) {
-  if (access(dest_path, F_OK) == 0) {
-    return 0;  // Already present.
+  const std::filesystem::path dest_fs_path(dest_path);
+  const std::filesystem::path dest_parent = dest_fs_path.parent_path();
+  const std::string dest_dir_str =
+      dest_parent.empty() ? "." : dest_parent.string();
+  const std::string dest_name = dest_fs_path.filename().string();
+  if (dest_name.empty()) {
+    return EINVAL;
   }
 
-  if (const int err = ensure_parent_dirs(dest_path); err != 0) {
-    return err;
+  int dir_fd = open(dest_dir_str.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  if (dir_fd < 0) {
+    if (errno != ENOENT) {
+      return errno;
+    }
+    if (const int err = ensure_parent_dirs(dest_path); err != 0) {
+      return err;
+    }
+    dir_fd = open(dest_dir_str.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (dir_fd < 0) {
+      return errno;
+    }
+  } else {
+    if (faccessat(dir_fd, dest_name.c_str(), F_OK, AT_SYMLINK_NOFOLLOW) == 0) {
+      close(dir_fd);
+      return 0;  // Already present.
+    }
   }
+
+  const std::filesystem::path tmp_fs_path(tmp_path);
+  const std::filesystem::path tmp_parent = tmp_fs_path.parent_path();
+  const std::string tmp_name = tmp_fs_path.filename().string();
+  if (tmp_name.empty()) {
+    close(dir_fd);
+    return EINVAL;
+  }
+
+  int tmp_dir_fd = dir_fd;
+  if (tmp_parent != dest_parent) {
+    const std::string tmp_dir_str =
+        tmp_parent.empty() ? "." : tmp_parent.string();
+    tmp_dir_fd = open(tmp_dir_str.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (tmp_dir_fd < 0) {
+      const int err = errno;
+      close(dir_fd);
+      return err;
+    }
+  }
+
+  auto close_dirs = [&]() {
+    if (tmp_dir_fd != dir_fd) {
+      close(tmp_dir_fd);
+    }
+    close(dir_fd);
+  };
 
   const int o_direct_flag = use_o_direct ? kODirectFlag : 0;
-  const int fd = open(
-      tmp_path, O_CREAT | O_EXCL | O_WRONLY | O_TRUNC | o_direct_flag, 0644);
+  const int fd = openat(
+      tmp_dir_fd, tmp_name.c_str(),
+      O_CREAT | O_EXCL | O_WRONLY | O_TRUNC | O_NOFOLLOW | o_direct_flag,
+      0644);
   if (fd < 0) {
-    return errno;
+    const int err = errno;
+    close_dirs();
+    return err;
   }
 
   const ssize_t written = write(fd, src, size);
   if (written < 0 || static_cast<size_t>(written) != size) {
     const int err = written < 0 ? errno : EIO;
     close(fd);  // Best-effort cleanup; the real error is already captured.
-    unlink(tmp_path);
+    unlinkat(tmp_dir_fd, tmp_name.c_str(), 0);
+    close_dirs();
     return err;
   }
 
   if (close(fd) != 0) {
     const int err = errno;
-    unlink(tmp_path);
+    unlinkat(tmp_dir_fd, tmp_name.c_str(), 0);
+    close_dirs();
     return err;
   }
 
-  if (rename(tmp_path, dest_path) != 0) {
+  int rename_rc = -1;
+#if defined(__linux__) && defined(RENAME_NOREPLACE)
+  rename_rc = renameat2(tmp_dir_fd, tmp_name.c_str(), dir_fd,
+                        dest_name.c_str(), RENAME_NOREPLACE);
+  if (rename_rc != 0 &&
+      (errno == EINVAL || errno == ENOSYS || errno == EOPNOTSUPP)) {
+    rename_rc =
+        renameat(tmp_dir_fd, tmp_name.c_str(), dir_fd, dest_name.c_str());
+  }
+#else
+  rename_rc =
+      renameat(tmp_dir_fd, tmp_name.c_str(), dir_fd, dest_name.c_str());
+#endif
+  if (rename_rc != 0) {
     const int err = errno;
-    unlink(tmp_path);
-    // Another writer published this block after the access() above; some
-    // shared filesystems fail rename(2) with EEXIST instead of replacing.
-    // File names are content hashes, so the file already in place holds this
-    // block and the store is done.
+    unlinkat(tmp_dir_fd, tmp_name.c_str(), 0);
+    close_dirs();
+    // Another writer published this block after the faccessat() above;
+    // RENAME_NOREPLACE (or some shared filesystems) fails with EEXIST instead
+    // of replacing. File names are content hashes, so the file already in
+    // place holds this block and the store is done.
     return err == EEXIST ? 0 : err;
   }
 
+  close_dirs();
   return 0;
 }
 
