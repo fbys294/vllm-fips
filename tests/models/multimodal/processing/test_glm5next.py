@@ -48,7 +48,7 @@ def _video_with_metadata(frames: np.ndarray):
             "total_num_frames": num_frames,
             "fps": 2.0,
             "duration": num_frames / 2.0,
-            "video_backend": "opencv",
+            "video_backend": "pyav",
             "frames_indices": list(range(num_frames)),
             "do_sample_frames": True,
         },

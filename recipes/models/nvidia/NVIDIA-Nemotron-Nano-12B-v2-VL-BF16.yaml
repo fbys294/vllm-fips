@@ -23,7 +23,7 @@ model:
   base_args:
     - "--trust-remote-code"
   base_env:
-    VLLM_VIDEO_LOADER_BACKEND: "opencv"
+    VLLM_VIDEO_LOADER_BACKEND: "pyav"
 
 features:
   video_compression:
@@ -99,7 +99,7 @@ guide: |
   ## Launch command
 
   ```bash
-  export VLLM_VIDEO_LOADER_BACKEND=opencv
+  export VLLM_VIDEO_LOADER_BACKEND=pyav
   export CHECKPOINT_PATH="nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16"
   export CUDA_VISIBLE_DEVICES=0
 
@@ -158,7 +158,7 @@ guide: |
 
   ## Troubleshooting
 
-  - Set `VLLM_VIDEO_LOADER_BACKEND=opencv` (required for video inputs).
+  - Set `VLLM_VIDEO_LOADER_BACKEND=pyav` (required for video inputs).
   - OOM: lower `--max-model-len` or increase `--video-pruning-rate`.
 
   ## References

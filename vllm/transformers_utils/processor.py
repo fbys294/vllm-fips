@@ -182,8 +182,8 @@ def get_video_processor_cls_name_from_config(
     # Some models ship no explicit ``video_processor_type`` in their
     # preprocessor config. Fall back to transformers' ``model_type`` -> video
     # processor mapping so these still resolve to their registered loader
-    # instead of the generic opencv fallback. The mapping is ``None`` for a
-    # given type when torchvision is unavailable; callers then use opencv.
+    # instead of the generic pyav fallback. The mapping is ``None`` for a
+    # given type when torchvision is unavailable; callers then use pyav.
     model_config = get_hf_file_to_dict("config.json", processor_name, revision=revision)
     if model_config and "model_type" in model_config:
         video_processor = VIDEO_PROCESSOR_MAPPING_NAMES.get(model_config["model_type"])

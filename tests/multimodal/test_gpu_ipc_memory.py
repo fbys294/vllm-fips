@@ -189,12 +189,12 @@ def test_global_pool_rejects_invalid_api_process_count():
         maybe_init_mm_gpu_ipc_pool(2, api_process_count=0)
 
 
-@pytest.mark.parametrize("video_backend", [None, "opencv"])
+@pytest.mark.parametrize("video_backend", [None, "pyav"])
 def test_reserve_mm_ipc_gpu_memory_raw_frame_budget_only(
     monkeypatch: pytest.MonkeyPatch,
     video_backend: str | None,
 ):
-    monkeypatch.setenv("VLLM_VIDEO_LOADER_BACKEND", "opencv")
+    monkeypatch.setenv("VLLM_VIDEO_LOADER_BACKEND", "pyav")
     mm_config = _mm_config(
         mm_ipc_gpu_memory_gb=0.25,
         video_backend=video_backend,
@@ -206,7 +206,7 @@ def test_reserve_mm_ipc_gpu_memory_raw_frame_budget_only(
 def test_reserve_mm_ipc_gpu_memory_includes_pynvvideocodec_decoder_budget(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setenv("VLLM_VIDEO_LOADER_BACKEND", "opencv")
+    monkeypatch.setenv("VLLM_VIDEO_LOADER_BACKEND", "pyav")
     mm_config = _mm_config(
         mm_ipc_gpu_memory_gb=0.25,
         video_backend=PYNVVIDEOCODEC_VIDEO_BACKEND,
@@ -245,7 +245,7 @@ def test_reserve_mm_ipc_gpu_memory_scales_decoder_budget_by_api_servers(
 def test_reserve_mm_ipc_gpu_memory_uses_configured_hw_decoders(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setenv("VLLM_VIDEO_LOADER_BACKEND", "opencv")
+    monkeypatch.setenv("VLLM_VIDEO_LOADER_BACKEND", "pyav")
     available_bytes = 4 * GiB_bytes
     mm_config = _mm_config(
         video_backend=PYNVVIDEOCODEC_VIDEO_BACKEND,
@@ -260,7 +260,7 @@ def test_reserve_mm_ipc_gpu_memory_uses_configured_hw_decoders(
 def test_reserve_mm_ipc_gpu_memory_scales_for_configured_decoder_dimensions(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setenv("VLLM_VIDEO_LOADER_BACKEND", "opencv")
+    monkeypatch.setenv("VLLM_VIDEO_LOADER_BACKEND", "pyav")
     available_bytes = 8 * GiB_bytes
     max_width = 7680
     max_height = 4320

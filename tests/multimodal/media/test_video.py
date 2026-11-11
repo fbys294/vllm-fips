@@ -89,8 +89,8 @@ def test_video_media_io_kwargs(monkeypatch: pytest.MonkeyPatch):
 
 @pytest.mark.parametrize("is_color", [True, False])
 @pytest.mark.parametrize("fourcc, ext", [("mp4v", "mp4"), ("XVID", "avi")])
-def test_opencv_video_io_colorspace(tmp_path, is_color: bool, fourcc: str, ext: str):
-    """Test all functions that use OpenCV for video I/O return RGB format.
+def test_pyav_video_io_colorspace(tmp_path, is_color: bool, fourcc: str, ext: str):
+    """Test all functions that use PyAV for video I/O return RGB format.
     Both RGB and grayscale videos are tested.
     """
     image_path = get_vllm_public_assets(
@@ -138,7 +138,7 @@ def test_opencv_video_io_colorspace(tmp_path, is_color: bool, fourcc: str, ext: 
         assert np.nanmean(sim) > 0.99
 
 
-def test_opencv_video_metadata_matches_sampled_frame_timeline(tmp_path):
+def test_pyav_video_metadata_matches_sampled_frame_timeline(tmp_path):
     image_path = f"{tmp_path}/test_metadata_image.png"
     Image.new("RGB", (8, 8), color=(255, 0, 0)).save(image_path)
     video_path = f"{tmp_path}/test_metadata_video.mp4"
@@ -481,7 +481,7 @@ class TestMergeKwargsGpuBackendPolicy:
         assert result["max_width"] == 3840
         assert result["max_height"] == 2160
 
-    @pytest.mark.parametrize("backend", ["opencv", "torchcodec"])
+    @pytest.mark.parametrize("backend", ["pyav", "torchcodec"])
     def test_software_video_backend_passes_through(self, backend: str):
         result = VideoMediaIO.merge_kwargs(
             default_kwargs=None,
@@ -489,7 +489,7 @@ class TestMergeKwargsGpuBackendPolicy:
         )
         assert result["video_backend"] == backend
 
-    @pytest.mark.parametrize("backend", ["opencv"])
+    @pytest.mark.parametrize("backend", ["pyav"])
     def test_software_codec_backend_passes_through(self, backend: str):
         result = VideoMediaIO.merge_kwargs(
             default_kwargs=None,
@@ -590,9 +590,9 @@ def test_switching_backend_drops_stale_codec_options(default_kwargs):
     new backend's option validation."""
     result = VideoMediaIO.merge_kwargs(
         default_kwargs={**default_kwargs, "num_frames": 8},
-        runtime_kwargs={"backend": "opencv"},
+        runtime_kwargs={"backend": "pyav"},
     )
-    assert result == {"backend": "opencv", "num_frames": 8}
+    assert result == {"backend": "pyav", "num_frames": 8}
 
 
 def test_same_backend_keeps_codec_options():

@@ -344,3 +344,4 @@ class PyAVVideoBackendMixin:
                 valid_num_frames,
             )
         return frames, valid_frame_indices
+

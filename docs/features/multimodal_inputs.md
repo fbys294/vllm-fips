@@ -861,13 +861,13 @@ backends are supported:
 
 | Backend | Device | Description |
 | --- | --- | --- |
-| `opencv` (default) | CPU | OpenCV-based decoder |
+| `pyav` (default) | CPU | PyAV-based decoder |
 | `torchcodec` | CPU | TorchCodec (PyTorch-native) decoder |
 | `pynvvideocodec` | GPU | NVIDIA PyNvVideoCodec decoder |
 | `deepstream` | GPU | NVIDIA DeepStream decoder |
 
 The two CPU backends are ultimately backed by FFmpeg. `torchcodec` lets you
-choose which FFmpeg version is used while `opencv` relies on whichever
+choose which FFmpeg version is used while `pyav` relies on whichever
 FFmpeg build it was linked against.
 
 Select the backend by passing the `backend` parameter via `--media-io-kwargs`:
@@ -933,7 +933,7 @@ vllm serve Qwen/Qwen3-VL-30B-A3B-Instruct \
 3. The next successfully grabbed frame (before reaching the next target) is used to recover the failed frame
 4. This approach handles both mid-video corruption and end-of-video truncation
 
-Works with common video formats like MP4 when using OpenCV backends.
+Works with common video formats like MP4 when using PyAV backends.
 
 #### GPU Video Decoding with PyNvVideoCodec (NVDEC)
 

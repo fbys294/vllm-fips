@@ -757,8 +757,8 @@ def test_auto_video_decode_follows_explicit_processor_device():
 
 def test_auto_video_decode_respects_explicit_media_io_kwargs():
     assert _resolve_mm_video_decode_device(
-        ec_role="ec_producer", video_kwargs={"backend": "opencv"}
-    ) == {"backend": "opencv"}
+        ec_role="ec_producer", video_kwargs={"backend": "pyav"}
+    ) == {"backend": "pyav"}
     assert _resolve_mm_video_decode_device(
         ec_role="ec_producer", video_kwargs={"device": "cpu"}
     ) == {"device": "cpu"}

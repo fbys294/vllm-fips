@@ -830,7 +830,7 @@ class NanoNemotronVLDummyInputsBuilder(
                 "duration": video_num_frames / 2.0,
                 "total_num_frames": video_num_frames,
                 "frames_indices": list(range(video_num_frames)),
-                "video_backend": "opencv_dynamic",
+                "video_backend": "pyav_dynamic",
                 "do_sample_frames": False,
             }
             video_items.append((video, video_metadata))

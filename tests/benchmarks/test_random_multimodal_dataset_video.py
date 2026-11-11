@@ -8,7 +8,7 @@ from tempfile import NamedTemporaryFile
 from typing import Any, cast
 from unittest.mock import Mock
 
-import cv2
+import av
 import pybase64 as base64
 import pytest
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
@@ -97,18 +97,16 @@ def test_generate_mm_item_video(
         temp_file.write(video_bytes)
 
     try:
-        cap = cv2.VideoCapture(temp_path)
-        assert cap.isOpened()
+        with av.open(temp_path) as container:
+            assert len(container.streams.video) > 0
+            stream = container.streams.video[0]
+            frame_count = int(stream.frames)
+            frame_width = int(stream.codec_context.width)
+            frame_height = int(stream.codec_context.height)
 
-        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-        assert frame_count == 8
-        assert frame_width == 48
-        assert frame_height == 64
-
-        cap.release()
+            assert frame_count == 8
+            assert frame_width == 48
+            assert frame_height == 64
     finally:
         if os.path.exists(temp_path):
             os.unlink(temp_path)
@@ -124,10 +122,21 @@ def test_generate_synthetic_video_cleans_up_on_error(
 ):
     """Release the writer and remove temporary storage when encoding fails."""
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
-    writer = Mock(spec=cv2.VideoWriter)
-    writer.isOpened.return_value = writer_opened
-    writer.write.side_effect = RuntimeError("Failed to write video frame")
-    monkeypatch.setattr(cv2, "VideoWriter", lambda *args, **kwargs: writer)
+    container = Mock()
+    container.__enter__ = Mock(return_value=container)
+    container.__exit__ = Mock(return_value=False)
+    stream = Mock()
+    stream.encode.side_effect = RuntimeError("Failed to write video frame")
+    container.add_stream.return_value = stream
+
+    if writer_opened:
+        monkeypatch.setattr(av, "open", lambda *args, **kwargs: container)
+    else:
+
+        def fail_open(*args, **kwargs):
+            raise RuntimeError("open failed")
+
+        monkeypatch.setattr(av, "open", fail_open)
 
     error = (
         "Failed to write video frame"
@@ -138,7 +147,8 @@ def test_generate_synthetic_video_cleans_up_on_error(
         video_dataset.generate_synthetic_video(48, 64, 8)
 
     assert not list(tmp_path.iterdir())
-    writer.release.assert_called_once_with()
+    if writer_opened:
+        container.__exit__.assert_called_once()
 
 
 @pytest.mark.benchmark
@@ -330,10 +340,10 @@ def test_sample_mixed_buckets_with_zero_probability(
                     temp_file.write(video_bytes)
 
                 try:
-                    cap = cv2.VideoCapture(temp_path)
-                    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                    cap.release()
+                    with av.open(temp_path) as container:
+                        stream = container.streams.video[0]
+                        frame_width = int(stream.codec_context.width)
+                        frame_height = int(stream.codec_context.height)
 
                     # Should be 64x64, not 128x128
                     assert frame_width == 64

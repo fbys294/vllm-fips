@@ -9,14 +9,13 @@ import sys
 # List of modules that should not be imported too early.
 # Lazy import `torch._inductor.async_compile` to avoid creating
 # too many processes before we set the number of compiler threads.
-# Lazy import `cv2` to avoid bothering users who only use text models.
-# `cv2` can easily mess up the environment.
+# Lazy import `av` to avoid bothering users who only use text models.
 # `openai`, `fastapi` and `starlette` belong to the frontend layer; `vllm.config`
 # (imported by every process) and the engine core's `vllm.v1.structured_output`
 # must not pull them in.
 module_names = [
     "torch._inductor.async_compile",
-    "cv2",
+    "av",
     "openai",
     "fastapi",
     "starlette",

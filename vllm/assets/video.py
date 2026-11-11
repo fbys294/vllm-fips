@@ -40,27 +40,32 @@ def download_video_asset(filename: str) -> str:
 
 
 def video_to_ndarrays(path: str, num_frames: int = -1) -> npt.NDArray:
-    import cv2
+    import av
 
-    cap = cv2.VideoCapture(path)
-    if not cap.isOpened():
-        raise ValueError(f"Could not open video file {path}")
+    try:
+        container = av.open(path)
+    except Exception as exc:
+        raise ValueError(f"Could not open video file {path}") from exc
 
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    frames = []
+    with container:
+        if not container.streams.video:
+            raise ValueError(f"Could not open video file {path}")
+        stream = container.streams.video[0]
+        total_frames = int(stream.frames)
+        if total_frames <= 0:
+            total_frames = sum(
+                1 for packet in container.demux(stream) if packet.dts is not None
+            )
+            container.seek(0)
+        frames = []
 
-    num_frames = num_frames if num_frames > 0 else total_frames
-    frame_indices = _sample_frame_indices(total_frames, num_frames)
-    for idx in range(total_frames):
-        ok = cap.grab()  # next img
-        if not ok:
-            break
-        if idx in frame_indices:  # only decompress needed
-            ret, frame = cap.retrieve()
-            if ret:
-                # OpenCV uses BGR format, we need to convert it to RGB
-                # for PIL and transformers compatibility
-                frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        num_frames = num_frames if num_frames > 0 else total_frames
+        frame_indices = _sample_frame_indices(total_frames, num_frames)
+        for idx, frame in enumerate(container.decode(video=0)):
+            if idx >= total_frames:
+                break
+            if idx in frame_indices:  # only convert needed
+                frames.append(frame.to_ndarray(format="rgb24"))
 
     frames = np.stack(frames)
     if len(frames) < num_frames:
@@ -77,14 +82,24 @@ def video_to_pil_images_list(path: str, num_frames: int = -1) -> list[Image.Imag
 
 
 def video_get_metadata(path: str, num_frames: int = -1) -> dict[str, Any]:
-    import cv2
+    import av
 
-    cap = cv2.VideoCapture(path)
-    if not cap.isOpened():
-        raise ValueError(f"Could not open video file {path}")
+    try:
+        container = av.open(path)
+    except Exception as exc:
+        raise ValueError(f"Could not open video file {path}") from exc
 
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    fps = cap.get(cv2.CAP_PROP_FPS)
+    with container:
+        if not container.streams.video:
+            raise ValueError(f"Could not open video file {path}")
+        stream = container.streams.video[0]
+        total_frames = int(stream.frames)
+        if total_frames <= 0:
+            total_frames = sum(
+                1 for packet in container.demux(stream) if packet.dts is not None
+            )
+        fps = float(stream.average_rate or stream.guessed_rate or 0.0)
+
     duration = total_frames / fps if fps > 0 else 0
 
     if num_frames == -1 or num_frames > total_frames:
@@ -95,7 +110,7 @@ def video_get_metadata(path: str, num_frames: int = -1) -> dict[str, Any]:
         "total_num_frames": num_frames,
         "fps": fps,
         "duration": duration,
-        "video_backend": "opencv",
+        "video_backend": "pyav",
         "frames_indices": frame_indices.tolist(),
         # extra field used to control hf processor's video
         # sampling behavior

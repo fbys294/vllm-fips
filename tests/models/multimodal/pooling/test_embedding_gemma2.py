@@ -34,22 +34,31 @@ def _ensure_synthetic_video(
 ) -> str:
     if os.path.exists(path):
         os.remove(path)
-    import cv2
+    from fractions import Fraction
+
+    import av
     import numpy as np
 
-    fourcc_fn = getattr(cv2, "VideoWriter_fourcc", cv2.VideoWriter.fourcc)
-    fourcc = fourcc_fn(*"mp4v")
     num_frames = int(duration * fps)
-    writer = cv2.VideoWriter(path, fourcc, fps, (width, height))
     y_coords, x_coords = np.mgrid[0:height, 0:width]
-    for i in range(num_frames):
-        # Spatially varying color pattern that evolves dynamically over frames
-        frame: np.ndarray = np.zeros((height, width, 3), dtype=np.uint8)
-        frame[..., 0] = ((x_coords * 255 // max(1, width)) + i * 17) % 256
-        frame[..., 1] = ((y_coords * 255 // max(1, height)) + i * 29) % 256
-        frame[..., 2] = (x_coords + y_coords + i * 13) % 256
-        writer.write(frame)
-    writer.release()
+    with av.open(path, mode="w") as container:
+        stream = container.add_stream(
+            "mpeg4", rate=Fraction(fps).limit_denominator(1000)
+        )
+        stream.width = width
+        stream.height = height
+        stream.pix_fmt = "yuv420p"
+        for i in range(num_frames):
+            # Spatially varying color pattern that evolves dynamically over frames
+            frame: np.ndarray = np.zeros((height, width, 3), dtype=np.uint8)
+            frame[..., 0] = (x_coords + y_coords + i * 13) % 256
+            frame[..., 1] = ((y_coords * 255 // max(1, height)) + i * 29) % 256
+            frame[..., 2] = ((x_coords * 255 // max(1, width)) + i * 17) % 256
+            av_frame = av.VideoFrame.from_ndarray(frame, format="rgb24")
+            for packet in stream.encode(av_frame):
+                container.mux(packet)
+        for packet in stream.encode():
+            container.mux(packet)
     return path
 
 
@@ -233,7 +242,7 @@ def test_video_parity_uniform_overflow(vllm_runner, st_model):
     video_path = _ensure_synthetic_video(
         "/tmp/test_40s.mp4", duration=40.0, fps=10.0, width=160, height=120
     )
-    frames, meta = load_video(video_path, backend="opencv")
+    frames, meta = load_video(video_path, backend="pyav")
     prompt = "Describe this video: <|video|>"
     ref = st_model.encode(
         [{"video": video_path, "text": prompt}], normalize_embeddings=True
@@ -253,7 +262,7 @@ def test_video_parity_portrait(vllm_runner, st_model):
     video_path = _ensure_synthetic_video(
         "/tmp/test_portrait.mp4", duration=3.0, fps=10.0, width=120, height=160
     )
-    frames, meta = load_video(video_path, backend="opencv")
+    frames, meta = load_video(video_path, backend="pyav")
     prompt = "Describe this video: <|video|>"
     ref = st_model.encode(
         [{"video": video_path, "text": prompt}], normalize_embeddings=True

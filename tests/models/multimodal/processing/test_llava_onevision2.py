@@ -104,7 +104,7 @@ def test_extract_codec_video_paths_mixed_batch_returns_none():
 #
 # The codec backend keeps the raw path string alive past vLLM's
 # MultiModalDataParser and hands it to the trust-remote-code codec module,
-# which opens it directly (cv2/ffmpeg) outside vLLM's MediaConnector. So the
+# which opens it directly (pyav/ffmpeg) outside vLLM's MediaConnector. So the
 # codec backend is restricted to *local files* confined to
 # --allowed-local-media-path; remote http(s)/data URLs are rejected (they must
 # use the frame backend, which rides the connector). The validator also returns

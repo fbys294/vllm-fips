@@ -619,7 +619,7 @@ class EmbeddingGemma2DummyInputsBuilder(Gemma4DummyInputsBuilder):
                 "duration": float(video_num_frames),
                 "total_num_frames": video_num_frames,
                 "frames_indices": list(range(video_num_frames)),
-                "video_backend": "opencv",
+                "video_backend": "pyav",
                 "do_sample_frames": False,
             }
             video_items.append((video, video_metadata))

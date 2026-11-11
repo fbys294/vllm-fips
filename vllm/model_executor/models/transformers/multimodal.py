@@ -465,7 +465,7 @@ class MultiModalDummyInputsBuilder(BaseDummyInputsBuilder[MultiModalProcessingIn
                             "duration": len(video) / fps if fps else None,
                             "total_num_frames": len(video),
                             "frames_indices": list(range(len(video))),
-                            "video_backend": "opencv",
+                            "video_backend": "pyav",
                             "do_sample_frames": False,
                         },
                     )

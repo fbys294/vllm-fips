@@ -484,7 +484,7 @@ class MiniMaxM3VideoBackend(VideoBackend):
         max_duration: int = 300,
         frame_recovery: bool = False,
         *,
-        backend: VideoDecoderBackend = "opencv",
+        backend: VideoDecoderBackend = "pyav",
         **kwargs,
     ) -> tuple[npt.NDArray, dict[str, Any]]:
         # fps=-1 (unspecified) falls back to the default 1 fps.

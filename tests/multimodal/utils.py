@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
 import io
+from fractions import Fraction
 
-import cv2
 import numpy as np
 import numpy.typing as npt
 from PIL import Image
@@ -45,26 +45,34 @@ def create_video_from_image(
     is_color: bool = True,
     fourcc: str = "mp4v",
 ):
-    image = cv2.imread(image_path)
-    if not is_color:
-        # Convert to grayscale if is_color is False
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        height, width = image.shape
-    else:
-        height, width, _ = image.shape
+    import av
 
-    video_writer = cv2.VideoWriter(
-        video_path,
-        cv2.VideoWriter_fourcc(*fourcc),
-        fps,
-        (width, height),
-        isColor=is_color,
-    )
+    with Image.open(image_path) as pil_img:
+        if not is_color:
+            # Convert to grayscale if is_color is False
+            pil_img = pil_img.convert("L").convert("RGB")
+        else:
+            pil_img = pil_img.convert("RGB")
+        image = np.asarray(pil_img)
 
-    for _ in range(num_frames):
-        video_writer.write(image)
+    height, width, _ = image.shape
 
-    video_writer.release()
+    with av.open(video_path, mode="w") as container:
+        stream = container.add_stream(
+            "mpeg4", rate=Fraction(fps).limit_denominator(1000)
+        )
+        stream.width = width
+        stream.height = height
+        stream.pix_fmt = "yuv420p"
+
+        for _ in range(num_frames):
+            av_frame = av.VideoFrame.from_ndarray(image, format="rgb24")
+            for packet in stream.encode(av_frame):
+                container.mux(packet)
+
+        for packet in stream.encode():
+            container.mux(packet)
+
     return video_path
 
 

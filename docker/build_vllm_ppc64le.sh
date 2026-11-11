@@ -67,16 +67,6 @@ echo "  torch:       ${TORCH_VERSION}"
 echo "  torchvision: ${TORCHVISION_VERSION}"
 echo "  torchaudio:  ${TORCHAUDIO_VERSION}"
 
-OPENCV_REQUIREMENT=$(grep -E '^opencv-python-headless[[:space:]]*(==|>=|<=|~=)' \
-    requirements/common.txt |
-    sed -E 's/^opencv-python-headless[[:space:]]*//' |
-    sed -E 's/[[:space:]]*#.*$//' |
-    tr -d ' ' |
-    head -n1)
-
-export OPENCV_REQUIREMENT
-echo "OpenCV requirement: ${OPENCV_REQUIREMENT}"
-
 
 XGRAMMAR_VERSION=$(
     sed -nE 's/^xgrammar[[:space:]]*==[[:space:]]*([^,;[:space:]]+).*/\1/p' requirements/common.txt |
@@ -191,23 +181,6 @@ is_available_on_devpi() {
 # Common packages from DevPI
 ########################################
 uv pip install numpy==2.3.5 pillow --extra-index-url "$IBM_DEVPI_URL"
-
-########################################
-# OpenCV
-########################################
-
-if [[ "${OPENCV_REQUIREMENT}" == ">=4.13.0" ]]; then
-    echo "OpenCV requirement is ${OPENCV_REQUIREMENT}"
-    echo "Installing opencv-python-headless from DevPI"
-
-    OPENCV_VERSION="==4.13.0.92+ppc64le1"
-else
-    echo "Using OpenCV requirement: ${OPENCV_REQUIREMENT}"
-
-    OPENCV_VERSION="${OPENCV_REQUIREMENT}"
-fi
-
-try_install_from_devpi "opencv-python-headless${OPENCV_VERSION}"
 
 ########################################
 # Check Torch / Torchvision / Torchaudio

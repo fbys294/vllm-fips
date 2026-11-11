@@ -68,7 +68,7 @@ def _build_video_mm_data(
         "duration": num_frames / original_fps,
         "total_num_frames": num_frames,
         "frames_indices": list(range(num_frames)),
-        "video_backend": "opencv",
+        "video_backend": "pyav",
         "do_sample_frames": True,
     }
     return {"video": [(video, metadata)]}

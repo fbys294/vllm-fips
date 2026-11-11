@@ -125,7 +125,7 @@ def test_hash_collision_video_num_frames():
             "total_num_frames": 16,
             "fps": 2.0,
             "duration": 8.0,
-            "video_backend": "opencv",
+            "video_backend": "pyav",
             "frames_indices": list(range(num_frames)),
             "do_sample_frames": False,
         }

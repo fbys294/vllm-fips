@@ -12,10 +12,10 @@ from .base import (
     check_frame_pixel_limit,
 )
 
-VideoDecoderBackend = Literal["opencv", "torchcodec", "pynvvideocodec", "deepstream"]
+VideoDecoderBackend = Literal["pyav", "torchcodec", "pynvvideocodec", "deepstream"]
 
 _BACKEND_OPTION_DEFAULTS: dict[str, dict[str, Any]] = {
-    "opencv": {},
+    "pyav": {},
     "torchcodec": {
         "num_ffmpeg_threads": 0,
         "seek_mode": "exact",
@@ -89,14 +89,14 @@ def decode_video(
 ):
     """Decode a sampled video, importing only the selected backend."""
     _get_backend_option_defaults(backend)
-    if frame_recovery and backend != "opencv":
+    if frame_recovery and backend != "pyav":
         error = (
             ValueError if backend == PYNVVIDEOCODEC_VIDEO_BACKEND else AssertionError
         )
         raise error(f"frame_recovery is not supported by the {backend!r} backend")
 
     decoder_kwargs = dict(backend_kwargs)
-    if backend == "opencv":
+    if backend == "pyav":
         decoder_kwargs["frame_recovery"] = frame_recovery
     module = import_module(f".{backend}", __name__)
     decoder = getattr(module, f"decode_{backend}")

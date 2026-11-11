@@ -176,18 +176,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     export TORCHCODEC_CMAKE_BUILD_DIR="${PWD}/build" && \
     python setup.py bdist_wheel
 
-# Build OpenCV from source for s390x
-FROM python-install AS opencv-builder
-WORKDIR /tmp
-ARG MAX_JOBS
-ARG OPENCV_VERSION=90
-ARG ENABLE_HEADLESS=1
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install numpy setuptools  wheel scikit_build build && \
-    git clone --recursive https://github.com/opencv/opencv-python.git -b ${OPENCV_VERSION} && \
-    cd opencv-python && \
-    python -m build --wheel --installer=uv --outdir /tmp/opencv-python/dist
-
 # # Final build stage
 FROM python-install AS vllm-cpu
 ARG PYTHON_VERSION
@@ -229,20 +217,17 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,from=hf-xet-builder,source=/tmp/hf-xet/dist,target=/tmp/hf-xet-wheels/ \
     --mount=type=bind,from=numba-builder,source=/tmp/llvmlite/dist,target=/tmp/llvmlite-wheels/ \
     --mount=type=bind,from=numba-builder,source=/tmp/numba/dist,target=/tmp/numba-wheels/ \
-    --mount=type=bind,from=opencv-builder,source=/tmp/opencv-python/dist,target=/tmp/opencv-wheels/ \
     --mount=type=bind,from=torchcodec-builder,source=/tmp/torchcodec/dist,target=/tmp/torchcodec-wheels/ \
      VISION_WHL_FILE=$(ls /tmp/vision-wheels/*.whl) && \
      HF_XET_WHL_FILE=$(ls /tmp/hf-xet-wheels/*.whl) && \
      LLVM_WHL_FILE=$(ls /tmp/llvmlite-wheels/*.whl) && \
      NUMBA_WHL_FILE=$(ls /tmp/numba-wheels/*.whl) && \
-     OPENCV_WHL_FILE=$(ls /tmp/opencv-wheels/*.whl) && \
      TORCHCODEC_WHL_FILE=$(ls /tmp/torchcodec-wheels/*.whl) && \
      uv pip install -v \
         $VISION_WHL_FILE \
         $HF_XET_WHL_FILE \
         $LLVM_WHL_FILE \
         $NUMBA_WHL_FILE \
-        $OPENCV_WHL_FILE \
         $TORCHCODEC_WHL_FILE \
         --torch-backend cpu \
         --index-strategy unsafe-best-match \

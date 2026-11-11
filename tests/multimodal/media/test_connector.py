@@ -314,7 +314,7 @@ async def test_fetch_video_http_with_dynamic_loader(
     monkeypatch: pytest.MonkeyPatch,
 ):
     with monkeypatch.context() as m:
-        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "opencv_dynamic")
+        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "pyav_dynamic")
         connector = MediaConnector(
             media_io_kwargs={
                 "video": {
@@ -332,7 +332,7 @@ async def test_fetch_video_http_with_dynamic_loader(
 
         assert np.array_equal(video_sync, video_async)
         assert metadata_sync == metadata_async
-        assert metadata_sync["video_backend"] == "opencv_dynamic"
+        assert metadata_sync["video_backend"] == "pyav_dynamic"
 
 
 @pytest.mark.parametrize(

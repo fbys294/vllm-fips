@@ -211,7 +211,7 @@ def _validate_video_source(path: str, model_config) -> str:
 
     The codec backend keeps the raw path string alive past vLLM's
     `MultiModalDataParser` and hands it to the trust-remote-code codec
-    module, which opens it directly via `cv2.VideoCapture` / ffmpeg. That
+    module, which opens it directly via PyAV / ffmpeg. That
     bypasses both `MediaConnector`'s access controls and its redirect
     handling (`VLLM_MEDIA_URL_ALLOW_REDIRECTS`), so we restrict the codec
     backend to **local files only**: remote `http(s)` / `data` URLs are
@@ -608,8 +608,8 @@ def _expand_video_markers_in_prompt(
 # ``qwen_vl_utils.smart_nframes`` (the policy the OV2 hf-chat recipe validated)
 # -- frame count and index selection are byte-identical to qwen. The one
 # residual difference is the source frame *count*: qwen decodes via decord
-# whereas vLLM uses OpenCV/PyAV, whose ``CAP_PROP_FRAME_COUNT`` (a duration x
-# fps estimate) can differ by +/-1 frame on some containers, shifting sampled
+# whereas vLLM uses PyAV, whose stream frame count / duration estimate
+# can differ by +/-1 frame on some containers, shifting sampled
 # indices by one frame on those files. Downstream metrics stay within noise.
 _OV2_FRAME_FACTOR = 2
 _OV2_FPS_MIN_FRAMES = 4
@@ -656,8 +656,8 @@ class LlavaOnevision2VideoBackend(VideoBackend):
 
     Selected automatically for OV2 via the `video_processor` binding
     (`video_processor_type == "LlavaOnevision2VideoProcessor"` in the model's
-    `video_preprocessor_config.json`). Decoding uses the inherited OpenCV /
-    PyAV codecs; only the sampling index policy is overridden to match qwen.
+    `video_preprocessor_config.json`). Decoding uses the inherited PyAV
+    codec; only the sampling index policy is overridden to match qwen.
     """
 
     _sampling_suffix = "_llava_onevision2"

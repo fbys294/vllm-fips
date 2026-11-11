@@ -87,7 +87,7 @@ if TYPE_CHECKING:
     VLLM_MAX_EMBED_DECODE_BYTES: int = 2_147_483_648
     VLLM_MAX_IMAGE_PIXELS: int = 178_956_970
     VLLM_MAX_MEDIA_REQUEST_DECODE_BYTES: int = 715_827_880
-    VLLM_VIDEO_LOADER_BACKEND: str = "opencv"
+    VLLM_VIDEO_LOADER_BACKEND: str = "pyav"
     VLLM_MEDIA_CONNECTOR: str = "http"
     VLLM_TARGET_DEVICE: str = "cuda"
     VLLM_MAIN_CUDA_VERSION: str = "13.0"
@@ -1106,15 +1106,15 @@ environment_variables: dict[str, Callable[[], Any]] = {
         os.getenv("VLLM_MAX_MEDIA_REQUEST_DOWNLOAD_SIZE_MB", "256")
     ),
     # Backend for Video IO — selects the frame-sampling algorithm.
-    # - "opencv": uniform sampling.
-    # - "opencv_dynamic": duration-aware dynamic sampling.
+    # - "pyav": uniform sampling.
+    # - "pyav_dynamic": duration-aware dynamic sampling.
     #
     # Custom backend implementations can be registered
     # via `@VIDEO_LOADER_REGISTRY.register("my_custom_video_loader")` and
     # imported at runtime.
     # If a non-existing backend is used, an AssertionError will be thrown.
     "VLLM_VIDEO_LOADER_BACKEND": lambda: os.getenv(
-        "VLLM_VIDEO_LOADER_BACKEND", "opencv"
+        "VLLM_VIDEO_LOADER_BACKEND", "pyav"
     ),
     # Media connector implementation.
     # - "http": Default connector that supports fetching media via HTTP.

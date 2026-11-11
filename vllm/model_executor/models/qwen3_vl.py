@@ -1297,7 +1297,7 @@ class Qwen3VLDummyInputsBuilder(BaseDummyInputsBuilder[Qwen3VLProcessingInfo]):
                 "duration": video_num_frames / 2.0,
                 "total_num_frames": video_num_frames,
                 "frames_indices": list(range(video_num_frames)),
-                "video_backend": "opencv",
+                "video_backend": "pyav",
                 "do_sample_frames": False,
             }
             video_items.append((video, video_metadata))

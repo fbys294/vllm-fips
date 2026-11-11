@@ -964,7 +964,7 @@ class RandomMultiModalDataset(RandomDataset):
         Creates a video with random pixel values, encodes it to MP4 format,
         and returns the content as bytes.
         """
-        import cv2
+        import av
 
         random_pixels = self._rng.integers(
             0,
@@ -973,24 +973,29 @@ class RandomMultiModalDataset(RandomDataset):
             dtype=np.uint8,
         )
 
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         fps = 30  # frames per second
 
         with TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir) / "video.mp4"
 
-            video_writer = cv2.VideoWriter(
-                str(temp_path), fourcc=fourcc, fps=fps, frameSize=(width, height)
-            )
-
             try:
-                if not video_writer.isOpened():
-                    raise RuntimeError("Failed to create video writer")
+                container = av.open(str(temp_path), mode="w")
+            except Exception as exc:
+                raise RuntimeError("Failed to create video writer") from exc
+
+            with container:
+                stream = container.add_stream("mpeg4", rate=fps)
+                stream.width = width
+                stream.height = height
+                stream.pix_fmt = "yuv420p"
 
                 for frame in random_pixels:
-                    video_writer.write(frame)
-            finally:
-                video_writer.release()
+                    av_frame = av.VideoFrame.from_ndarray(frame, format="rgb24")
+                    for packet in stream.encode(av_frame):
+                        container.mux(packet)
+
+                for packet in stream.encode():
+                    container.mux(packet)
 
             return {"bytes": temp_path.read_bytes()}
 

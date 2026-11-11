@@ -36,7 +36,7 @@ from vllm.multimodal.video import (
     get_video_loader_backend_for_processor,
 )
 from vllm.multimodal.video_decoders import decode_video, resolve_video_backend_kwargs
-from vllm.multimodal.video_decoders.opencv import OpenCVVideoBackendMixin
+from vllm.multimodal.video_decoders.pyav import PyAVVideoBackendMixin
 from vllm.multimodal.video_decoders.pynvvideocodec import (
     PYNVVIDEOCODEC_DECODE_BATCH_SIZE,
     PYNVVIDEOCODEC_DECODER_CACHE_SIZE,
@@ -128,7 +128,7 @@ import vllm.multimodal.video  # noqa: F401
 
 backend_modules = {
     f"vllm.multimodal.video_decoders.{backend}"
-    for backend in ("opencv", "torchcodec", "pynvvideocodec", "deepstream")
+    for backend in ("pyav", "torchcodec", "pynvvideocodec", "deepstream")
 }
 loaded = sorted(backend_modules & sys.modules.keys())
 assert not loaded, loaded
@@ -143,7 +143,7 @@ assert not loaded, loaded
 
 @pytest.mark.parametrize(
     "backend",
-    ["opencv", "torchcodec", "pynvvideocodec", "deepstream"],
+    ["pyav", "torchcodec", "pynvvideocodec", "deepstream"],
 )
 def test_decode_video_imports_only_selected_backend(
     backend: str,
@@ -230,14 +230,14 @@ def test_video_backend_kwargs_are_separated_from_sampling_kwargs(
 
 def test_video_backend_rejects_options_for_another_decoder():
     with pytest.raises(
-        ValueError, match="num_ffmpeg_threads is not supported by the 'opencv' backend"
+        ValueError, match="num_ffmpeg_threads is not supported by the 'pyav' backend"
     ):
-        resolve_video_backend_kwargs("opencv", {"num_ffmpeg_threads": 2})
+        resolve_video_backend_kwargs("pyav", {"num_ffmpeg_threads": 2})
 
     with pytest.raises(
-        ValueError, match="device is not supported by the 'opencv' backend"
+        ValueError, match="device is not supported by the 'pyav' backend"
     ):
-        resolve_video_backend_kwargs("opencv", {"device": "cuda"})
+        resolve_video_backend_kwargs("pyav", {"device": "cuda"})
 
 
 @pytest.mark.parametrize(
@@ -399,7 +399,7 @@ def test_pynvvideocodec_codec_uses_dynamic_sampling_strategy(
         classmethod(lambda cls, file_path, nvc, **kwargs: (8192, 8192)),
     )
 
-    loader = VIDEO_LOADER_REGISTRY.load("opencv_dynamic")
+    loader = VIDEO_LOADER_REGISTRY.load("pyav_dynamic")
     frames, metadata = loader.load_bytes(
         b"fake video",
         fps=2,
@@ -1311,16 +1311,16 @@ def test_qwen3_vl_unknown_source_fps_matches_hf(
 ):
     """An unknown source fps (reported as 0) samples like HF's fps=None, and
     the metadata carries the fps HF assumes, which the frame timestamps use."""
-    get_video_metadata = OpenCVVideoBackendMixin.get_video_metadata
+    get_video_metadata = PyAVVideoBackendMixin.get_video_metadata
 
     def unknown_fps(data) -> VideoSourceMetadata:
         return get_video_metadata(data)._replace(original_fps=0.0, duration=0.0)
 
     monkeypatch.setattr(
-        OpenCVVideoBackendMixin, "get_video_metadata", staticmethod(unknown_fps)
+        PyAVVideoBackendMixin, "get_video_metadata", staticmethod(unknown_fps)
     )
     _, metadata = Qwen3VLVideoBackend.load_bytes(
-        dummy_video_path.read_bytes(), fps=2, backend="opencv"
+        dummy_video_path.read_bytes(), fps=2, backend="pyav"
     )
 
     total_frames = metadata["total_num_frames"]
@@ -1474,7 +1474,7 @@ def test_video_backend_handles_broken_frames(monkeypatch: pytest.MonkeyPatch):
     them gracefully without crashing and returns accurate metadata.
     """
     with monkeypatch.context() as m:
-        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "opencv")
+        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "pyav")
 
         # Load the pre-corrupted video file that contains broken frames
         corrupted_video_path = ASSETS_DIR / "corrupted.mp4"
@@ -1482,9 +1482,9 @@ def test_video_backend_handles_broken_frames(monkeypatch: pytest.MonkeyPatch):
         with open(corrupted_video_path, "rb") as f:
             video_data = f.read()
 
-        loader = VIDEO_LOADER_REGISTRY.load("opencv")
+        loader = VIDEO_LOADER_REGISTRY.load("pyav")
         frames, metadata = loader.load_bytes(
-            video_data, num_frames=-1, backend="opencv"
+            video_data, num_frames=-1, backend="pyav"
         )
 
         # Verify metadata consistency:
@@ -1515,14 +1515,14 @@ def test_video_backend_handles_edit_list_trimmed_video(
     resample over the true stream length instead.
     """
     with monkeypatch.context() as m:
-        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "opencv")
+        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "pyav")
 
         video_data, num_visible = create_edit_list_trimmed_video(
             num_frames=90, trim_start_frame=60
         )
 
-        loader = VIDEO_LOADER_REGISTRY.load("opencv")
-        for backend in ["opencv"]:
+        loader = VIDEO_LOADER_REGISTRY.load("pyav")
+        for backend in ["pyav"]:
             frames, metadata = loader.load_bytes(
                 video_data, num_frames=-1, backend=backend
             )
@@ -1541,26 +1541,26 @@ def test_video_backend_handles_edit_list_trimmed_video(
         assert qwen_frames.shape[0] >= 4
 
 
-def test_opencv_demux_counts_frames_when_video_header_lacks_metadata(
+def test_pyav_demux_counts_frames_when_video_header_lacks_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ):
     """Streamed WebM and raw H.264 carry no frame count/duration in their
-    headers, so OpenCV reports a bogus negative `CAP_PROP_FRAME_COUNT`.
+    headers, so stream.frames is 0.
     The loader must count the frames via a demux-only pass, without
     decoding.
     """
     with monkeypatch.context() as m:
-        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "opencv")
-        loader = VIDEO_LOADER_REGISTRY.load("opencv")
+        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "pyav")
+        loader = VIDEO_LOADER_REGISTRY.load("pyav")
 
         webm_data = create_live_webm_video(num_frames=20, fps=10)
-        frames, metadata = loader.load_bytes(webm_data, backend="opencv")
+        frames, metadata = loader.load_bytes(webm_data, backend="pyav")
         assert frames.shape[0] == 20
         assert metadata["total_num_frames"] == 20
         assert metadata["duration"] == pytest.approx(2.0)
 
         h264_data = create_raw_h264_video(num_frames=20, fps=25)
-        frames, metadata = loader.load_bytes(h264_data, backend="opencv")
+        frames, metadata = loader.load_bytes(h264_data, backend="pyav")
         assert frames.shape[0] == 20
         assert metadata["total_num_frames"] == 20
         assert metadata["duration"] == pytest.approx(0.8)
@@ -1580,14 +1580,14 @@ def test_video_recovery_simulated_failures(monkeypatch: pytest.MonkeyPatch):
     """Test that frame recovery correctly uses the next valid frame when
     target frames fail to load.
 
-    Uses corrupted.mp4 and mocks VideoCapture.grab() to fail on specific
+    Uses corrupted.mp4 and mocks packet.decode() to fail on specific
     frame indices (in addition to the real corruption at frame 17), then
     verifies recovery produces more frames.
     """
-    import cv2
+    import av
 
     with monkeypatch.context() as m:
-        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "opencv")
+        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "pyav")
 
         # Load corrupted.mp4 (26 frames, frame 17 is genuinely corrupted)
         video_path = ASSETS_DIR / "corrupted.mp4"
@@ -1598,46 +1598,60 @@ def test_video_recovery_simulated_failures(monkeypatch: pytest.MonkeyPatch):
         # (in addition to the real corruption at frame 17)
         fail_on_frames = {3, 10}
 
-        # Store original VideoCapture class
-        original_video_capture = cv2.VideoCapture
+        original_av_open = av.open
 
-        class MockVideoCapture:
-            """Wrapper that simulates grab() failures on specific frames."""
+        class MockPacket:
+            def __init__(self, packet, should_fail: bool):
+                self._packet = packet
+                self._should_fail = should_fail
+
+            @property
+            def size(self):
+                return self._packet.size
+
+            @property
+            def pts(self):
+                return self._packet.pts
+
+            def decode(self):
+                if self._should_fail:
+                    raise RuntimeError("Simulated frame failure")
+                return self._packet.decode()
+
+        class MockContainer:
+            """Wrapper that simulates packet decode() failures on specific frames."""
 
             def __init__(self, *args, **kwargs):
-                self._cap = original_video_capture(*args, **kwargs)
+                self._container = original_av_open(*args, **kwargs)
                 self._current_frame = -1
 
-            def grab(self):
-                self._current_frame += 1
-                if self._current_frame in fail_on_frames:
-                    return False  # Simulate failure
-                return self._cap.grab()
+            @property
+            def streams(self):
+                return self._container.streams
 
-            def retrieve(self):
-                return self._cap.retrieve()
+            def demux(self, *args, **kwargs):
+                for packet in self._container.demux(*args, **kwargs):
+                    if packet.size > 0:
+                        self._current_frame += 1
+                        should_fail = self._current_frame in fail_on_frames
+                        yield MockPacket(packet, should_fail)
+                    else:
+                        yield packet
 
-            def get(self, prop):
-                return self._cap.get(prop)
+            def close(self):
+                return self._container.close()
 
-            def set(self, prop, value):
-                # get_video_metadata probes the stream end with a seek;
-                # keep the simulated frame counter aligned with rewinds.
-                result = self._cap.set(prop, value)
-                if prop == cv2.CAP_PROP_POS_FRAMES:
-                    self._current_frame = int(value) - 1
-                return result
+            def __enter__(self):
+                self._container.__enter__()
+                return self
 
-            def isOpened(self):
-                return self._cap.isOpened()
+            def __exit__(self, *args):
+                return self._container.__exit__(*args)
 
-            def release(self):
-                return self._cap.release()
+        # Patch av.open
+        m.setattr(av, "open", MockContainer)
 
-        # Patch cv2.VideoCapture
-        m.setattr(cv2, "VideoCapture", MockVideoCapture)
-
-        loader = VIDEO_LOADER_REGISTRY.load("opencv")
+        loader = VIDEO_LOADER_REGISTRY.load("pyav")
 
         # Use num_frames=8 which samples: [0, 3, 7, 10, 14, 17, 21, 25]
         # Frame 3: mocked failure, recovery window [3, 7) -> use frame 4
@@ -1646,12 +1660,12 @@ def test_video_recovery_simulated_failures(monkeypatch: pytest.MonkeyPatch):
 
         # Test WITHOUT recovery - should have fewer frames due to failures
         frames_no_recovery, meta_no = loader.load_bytes(
-            video_data, num_frames=8, frame_recovery=False, backend="opencv"
+            video_data, num_frames=8, frame_recovery=False, backend="pyav"
         )
 
         # Test WITH recovery - should recover using next valid frames
         frames_with_recovery, meta_yes = loader.load_bytes(
-            video_data, num_frames=8, frame_recovery=True, backend="opencv"
+            video_data, num_frames=8, frame_recovery=True, backend="pyav"
         )
 
         # With recovery should have MORE frames than without
@@ -1686,14 +1700,14 @@ def test_video_recovery_with_corrupted_file(monkeypatch: pytest.MonkeyPatch):
     4. Metadata is consistent with loaded frames
     """
     with monkeypatch.context() as m:
-        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "opencv")
+        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "pyav")
 
         corrupted_video_path = ASSETS_DIR / "corrupted.mp4"
 
         with open(corrupted_video_path, "rb") as f:
             video_data = f.read()
 
-        loader = VIDEO_LOADER_REGISTRY.load("opencv")
+        loader = VIDEO_LOADER_REGISTRY.load("pyav")
 
         # Use num_frames=8 which makes frame 17 a target with recovery window [17, 21)
         # Target frames: [0, 3, 7, 10, 14, 17, 21, 25]
@@ -1701,12 +1715,12 @@ def test_video_recovery_with_corrupted_file(monkeypatch: pytest.MonkeyPatch):
 
         # Test without recovery - frame 17 will be skipped
         frames_no_recovery, meta_no_recovery = loader.load_bytes(
-            video_data, num_frames=8, frame_recovery=False, backend="opencv"
+            video_data, num_frames=8, frame_recovery=False, backend="pyav"
         )
 
         # Test with recovery - frame 18 should fill in for frame 17
         frames_with_recovery, meta_with_recovery = loader.load_bytes(
-            video_data, num_frames=8, frame_recovery=True, backend="opencv"
+            video_data, num_frames=8, frame_recovery=True, backend="pyav"
         )
 
         # Verify metadata consistency for both modes
@@ -1746,14 +1760,14 @@ def test_video_recovery_dynamic_backend(monkeypatch: pytest.MonkeyPatch):
     loading all frames. This test verifies recovery works in that context.
     """
     with monkeypatch.context() as m:
-        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "opencv_dynamic")
+        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "pyav_dynamic")
 
         corrupted_video_path = ASSETS_DIR / "corrupted.mp4"
 
         with open(corrupted_video_path, "rb") as f:
             video_data = f.read()
 
-        loader = VIDEO_LOADER_REGISTRY.load("opencv_dynamic")
+        loader = VIDEO_LOADER_REGISTRY.load("pyav_dynamic")
 
         # Test without recovery
         frames_no_recovery, meta_no = loader.load_bytes(
@@ -1761,12 +1775,12 @@ def test_video_recovery_dynamic_backend(monkeypatch: pytest.MonkeyPatch):
             fps=2,
             max_duration=10,
             frame_recovery=False,
-            backend="opencv",
+            backend="pyav",
         )
 
         # Test with frame_recovery enabled
         frames_with_recovery, meta_with = loader.load_bytes(
-            video_data, fps=2, max_duration=10, frame_recovery=True, backend="opencv"
+            video_data, fps=2, max_duration=10, frame_recovery=True, backend="pyav"
         )
 
         # Verify basic properties
@@ -1811,12 +1825,12 @@ def test_torchcodec_backend_loads_frames(
     """Test that the torchcodec codec backend can load frames."""
     pytest.importorskip("torchcodec")
     with monkeypatch.context() as m:
-        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "opencv")
+        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "pyav")
 
         with open(dummy_video_path, "rb") as f:
             video_data = f.read()
 
-        loader = VIDEO_LOADER_REGISTRY.load("opencv")
+        loader = VIDEO_LOADER_REGISTRY.load("pyav")
         frames, metadata = loader.load_bytes(
             video_data, num_frames=8, backend="torchcodec"
         )
@@ -1837,12 +1851,12 @@ def test_torchcodec_dynamic_backend_loads_frames(
     """Test that the torchcodec codec with dynamic sampling can load frames."""
     pytest.importorskip("torchcodec")
     with monkeypatch.context() as m:
-        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "opencv_dynamic")
+        m.setenv("VLLM_VIDEO_LOADER_BACKEND", "pyav_dynamic")
 
         with open(dummy_video_path, "rb") as f:
             video_data = f.read()
 
-        loader = VIDEO_LOADER_REGISTRY.load("opencv_dynamic")
+        loader = VIDEO_LOADER_REGISTRY.load("pyav_dynamic")
         frames, metadata = loader.load_bytes(
             video_data, fps=2, max_duration=10, backend="torchcodec"
         )
@@ -1855,12 +1869,12 @@ def test_torchcodec_dynamic_backend_loads_frames(
 
 
 def test_torchcodec_backend_rejects_frame_recovery(dummy_video_path):
-    """frame_recovery is OpenCV-only; torchcodec must reject it."""
+    """frame_recovery is PyAV-only; torchcodec must reject it."""
     pytest.importorskip("torchcodec")
     with open(dummy_video_path, "rb") as f:
         video_data = f.read()
 
-    loader = VIDEO_LOADER_REGISTRY.load("opencv")
+    loader = VIDEO_LOADER_REGISTRY.load("pyav")
     with pytest.raises(AssertionError):
         loader.load_bytes(
             video_data, num_frames=8, backend="torchcodec", frame_recovery=True
@@ -1876,7 +1890,7 @@ def test_torchcodec_backend_cuda_decodes_on_gpu(dummy_video_path):
     with open(dummy_video_path, "rb") as f:
         video_data = f.read()
 
-    loader = VIDEO_LOADER_REGISTRY.load("opencv")
+    loader = VIDEO_LOADER_REGISTRY.load("pyav")
     frames, metadata = loader.load_bytes(
         video_data, num_frames=8, backend="torchcodec", device="cuda"
     )
@@ -1909,7 +1923,7 @@ def test_torchcodec_backend_returns_target_frames_not_keyframes():
         num_frames=num_frames, width=width, height=height
     )
 
-    loader = VIDEO_LOADER_REGISTRY.load("opencv")
+    loader = VIDEO_LOADER_REGISTRY.load("pyav")
     frames, metadata = loader.load_bytes(
         video_bytes, num_frames=num_sampled, backend="torchcodec"
     )
@@ -1938,32 +1952,32 @@ def test_torchcodec_backend_returns_target_frames_not_keyframes():
 @pytest.mark.parametrize(
     "loader_key, kwargs, expected_num_frames",
     [
-        # uniform sampling + opencv codec
+        # uniform sampling + pyav codec
         pytest.param(
-            "opencv",
-            {"num_frames": 32, "backend": "opencv"},
+            "pyav",
+            {"num_frames": 32, "backend": "pyav"},
             32,
-            id="opencv-num_frames",
+            id="pyav-num_frames",
         ),
-        pytest.param("opencv", {"fps": 2, "backend": "opencv"}, 120, id="opencv-fps"),
+        pytest.param("pyav", {"fps": 2, "backend": "pyav"}, 120, id="pyav-fps"),
         pytest.param(
-            "opencv",
-            {"num_frames": 500, "fps": 2, "backend": "opencv"},
+            "pyav",
+            {"num_frames": 500, "fps": 2, "backend": "pyav"},
             120,
-            id="opencv-num_frames_wins_fps",
+            id="pyav-num_frames_wins_fps",
         ),
-        # dynamic sampling + opencv codec
+        # dynamic sampling + pyav codec
         pytest.param(
-            "opencv_dynamic",
-            {"fps": 1, "max_duration": 60, "backend": "opencv"},
+            "pyav_dynamic",
+            {"fps": 1, "max_duration": 60, "backend": "pyav"},
             60,
-            id="opencv_dynamic-within_max_duration",
+            id="pyav_dynamic-within_max_duration",
         ),
         pytest.param(
-            "opencv_dynamic",
-            {"fps": 2, "max_duration": 30, "backend": "opencv"},
+            "pyav_dynamic",
+            {"fps": 2, "max_duration": 30, "backend": "pyav"},
             60,
-            id="opencv_dynamic-exceeds_max_duration",
+            id="pyav_dynamic-exceeds_max_duration",
         ),
         pytest.param(
             "openpangu", {"num_frames": 32, "fps": -1}, 32, id="openpangu-num_frames"
@@ -1984,35 +1998,35 @@ def test_torchcodec_backend_returns_target_frames_not_keyframes():
         # 60s falls in (30, 300] → target_fps=1.0, extract_t = 60*1.0*2 = 120
         pytest.param(
             "glm46v",
-            {"backend": "opencv"},
+            {"backend": "pyav"},
             120,
             id="glm46v-60s",
         ),
-        # uniform sampling + torchcodec codec (same frame counts as opencv)
+        # uniform sampling + torchcodec codec (same frame counts as pyav)
         pytest.param(
-            "opencv",
+            "pyav",
             {"num_frames": 32, "backend": "torchcodec"},
             32,
             id="torchcodec-num_frames",
         ),
         pytest.param(
-            "opencv", {"fps": 2, "backend": "torchcodec"}, 120, id="torchcodec-fps"
+            "pyav", {"fps": 2, "backend": "torchcodec"}, 120, id="torchcodec-fps"
         ),
         pytest.param(
-            "opencv",
+            "pyav",
             {"num_frames": 500, "fps": 2, "backend": "torchcodec"},
             120,
             id="torchcodec-num_frames_wins_fps",
         ),
         # dynamic sampling + torchcodec codec
         pytest.param(
-            "opencv_dynamic",
+            "pyav_dynamic",
             {"fps": 1, "max_duration": 60, "backend": "torchcodec"},
             60,
             id="torchcodec_dynamic-within_max_duration",
         ),
         pytest.param(
-            "opencv_dynamic",
+            "pyav_dynamic",
             {"fps": 2, "max_duration": 30, "backend": "torchcodec"},
             60,
             id="torchcodec_dynamic-exceeds_max_duration",
@@ -2292,47 +2306,69 @@ def test_glm5next_backend_metadata_contract():
 
 def _write_gray_video(tmp_path, total_frames, fps, size=(32, 32)):
     """Synthetic clip whose frame i is flat gray level i (near-lossless under
-    mp4v), so a decoded frame's level maps back to its source index."""
-    cv2 = pytest.importorskip("cv2")
+    mpeg4), so a decoded frame's level maps back to its source index."""
+    av = pytest.importorskip("av")
 
     path = tmp_path / f"gray_{total_frames}_{fps}.mp4"
-    writer = cv2.VideoWriter(
-        str(path), cv2.VideoWriter_fourcc(*"mp4v"), fps, size, isColor=False
-    )
-    assert writer.isOpened()
-    for i in range(total_frames):
-        writer.write(np.full((*size, 1), i, dtype=np.uint8))
-    writer.release()
+    width, height = size
+    with av.open(str(path), mode="w") as container:
+        stream = container.add_stream("mpeg4", rate=fps)
+        stream.width = width
+        stream.height = height
+        stream.pix_fmt = "yuv420p"
+        stream.codec_context.gop_size = 10
+        for i in range(total_frames):
+            img = np.full((height, width, 3), i, dtype=np.uint8)
+            frame = av.VideoFrame.from_ndarray(img, format="rgb24")
+            for packet in stream.encode(frame):
+                container.mux(packet)
+        for packet in stream.encode():
+            container.mux(packet)
     return path
 
 
-class _CountingCap:
-    """Proxy over a real capture that counts grab/seek decoding work."""
+class _CountingFrame:
+    """Proxy over a decoded PyAV frame that distinguishes walks from reads."""
 
-    def __init__(self, cap):
-        self._cap = cap
+    def __init__(self, frame, counter):
+        self._frame = frame
+        self._counter = counter
+        self._counter.grabs += 1
+
+    @property
+    def pts(self):
+        return self._frame.pts
+
+    def to_ndarray(self, *args, **kwargs):
+        self._counter.grabs -= 1
+        return self._frame.to_ndarray(*args, **kwargs)
+
+
+class _CountingContainer:
+    """Proxy over a real PyAV container that counts walk/seek decoding work."""
+
+    def __init__(self, container):
+        self._container = container
         self.grabs = 0
         self.seeks = 0
 
-    def get(self, prop):
-        return self._cap.get(prop)
+    @property
+    def streams(self):
+        return self._container.streams
 
-    def grab(self):
-        self.grabs += 1
-        return self._cap.grab()
-
-    def set(self, prop, value):
+    def seek(self, *args, **kwargs):
         self.seeks += 1
-        return self._cap.set(prop, value)
+        return self._container.seek(*args, **kwargs)
 
-    def read(self):
-        return self._cap.read()
+    def decode(self, *args, **kwargs):
+        for frame in self._container.decode(*args, **kwargs):
+            yield _CountingFrame(frame, self)
 
 
-@pytest.mark.parametrize("backend", ["opencv", "torchcodec"])
+@pytest.mark.parametrize("backend", ["pyav", "torchcodec"])
 def test_glm5next_backend_codec_parity(tmp_path, backend):
     """Every codec samples the same GLM indices and decodes the same
-    frames; the OpenCV seek reader and torchcodec batched index-exact decode
+    frames; the PyAV seek reader and torchcodec batched index-exact decode
     must agree."""
     if backend == "torchcodec":
         pytest.importorskip("torchcodec")
@@ -2362,7 +2398,7 @@ def test_glm5next_backend_codec_parity(tmp_path, backend):
 def test_glm5next_backend_decodes_only_sampled_frames(tmp_path):
     """End to end over a synthetic clip: load_bytes returns exactly the
     sampler's frame count, with the right frame content at each index."""
-    pytest.importorskip("cv2")
+    pytest.importorskip("av")
 
     total_frames, fps = 60, 10
     path = _write_gray_video(tmp_path, total_frames, fps)
@@ -2374,7 +2410,7 @@ def test_glm5next_backend_decodes_only_sampled_frames(tmp_path):
     assert len(frames) == len(expected)
     assert metadata["frames_indices"] == expected
     assert metadata["do_sample_frames"] is (len(expected) == total_frames)
-    # Flat gray frames survive mp4v near-losslessly: each decoded frame's
+    # Flat gray frames survive mpeg4 near-losslessly: each decoded frame's
     # level maps back to its source frame index.
     for frame, idx in zip(frames, expected):
         decoded_idx = round(float(np.asarray(frame).mean()))
@@ -2382,28 +2418,27 @@ def test_glm5next_backend_decodes_only_sampled_frames(tmp_path):
 
 
 def test_glm5next_read_frames_seeks_past_large_gaps(tmp_path):
-    """Sparse targets must not walk the container: the stock reader grabs
+    """Sparse targets must not walk the container: the stock reader decodes
     every frame up to the last index; the GLM reader seeks instead."""
-    cv2 = pytest.importorskip("cv2")
+    av = pytest.importorskip("av")
 
     total_frames, fps = 200, 10
     path = _write_gray_video(tmp_path, total_frames, fps)
     targets = [0, 80, 160, 190]  # gaps of 80/80/30 -> only 30 <= threshold
 
-    stock = cv2.VideoCapture(str(path))
-    _, stock_indices = VideoBackend.read_frames(stock, targets, total_frames)
-    stock.release()
+    with av.open(str(path)) as stock:
+        _, stock_indices = VideoBackend.read_frames(stock, targets, total_frames)
     assert stock_indices == targets
 
-    cap = _CountingCap(cv2.VideoCapture(str(path)))
-    frames, indices = Glm5NextVideoBackend.read_frames(cap, targets, total_frames)
-    cap._cap.release()
+    with av.open(str(path)) as raw_container:
+        cap = _CountingContainer(raw_container)
+        frames, indices = Glm5NextVideoBackend.read_frames(cap, targets, total_frames)
 
     assert indices == targets == stock_indices
     for frame, idx in zip(frames, targets):
         assert abs(round(float(np.asarray(frame).mean())) - idx) <= 1
     # Walks only the sub-threshold 30-frame hop; the two 80-frame gaps are
-    # seeks. The stock reader grabs all 190 preceding frames.
+    # seeks.
     assert cap.grabs <= 29
     assert cap.seeks == 3
 
@@ -2411,19 +2446,20 @@ def test_glm5next_read_frames_seeks_past_large_gaps(tmp_path):
 def test_glm5next_read_frames_dense_walk_matches_stock(tmp_path):
     """Dense targets keep the sequential walk (seeking would be slower) and
     return the same frames as the stock reader."""
-    cv2 = pytest.importorskip("cv2")
+    av = pytest.importorskip("av")
 
     total_frames, fps = 120, 10
     path = _write_gray_video(tmp_path, total_frames, fps)
     targets = list(range(0, total_frames, 15))  # gaps of 15 -> all walking
 
-    stock = cv2.VideoCapture(str(path))
-    stock_frames, stock_indices = VideoBackend.read_frames(stock, targets, total_frames)
-    stock.release()
+    with av.open(str(path)) as stock:
+        stock_frames, stock_indices = VideoBackend.read_frames(
+            stock, targets, total_frames
+        )
 
-    cap = _CountingCap(cv2.VideoCapture(str(path)))
-    frames, indices = Glm5NextVideoBackend.read_frames(cap, targets, total_frames)
-    cap._cap.release()
+    with av.open(str(path)) as raw_container:
+        cap = _CountingContainer(raw_container)
+        frames, indices = Glm5NextVideoBackend.read_frames(cap, targets, total_frames)
 
     assert indices == stock_indices
     for frame, stock_frame, idx in zip(frames, stock_frames, targets):
@@ -2436,7 +2472,7 @@ def test_glm5next_read_frames_dense_walk_matches_stock(tmp_path):
 def test_clef_omni_backend_samples_reference_frames(tmp_path):
     """Clef-Omni samples the first frame at or after each 0.5 s boundary
     (the reference's 2 fps timestamp sampling), not uniform strides."""
-    pytest.importorskip("cv2")
+    pytest.importorskip("av")
 
     # 2 s at 30 fps: the reference reads frames 0, 15, 30 and 45, where
     # uniform sampling would read 0, 19, 39 and 59.

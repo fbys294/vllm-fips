@@ -278,4 +278,6 @@ no-build-isolation-package = ["torch"]
 # module without downloading tiktoken vocabularies at runtime. Installing
 # openai-harmony alongside it silently overwrites those files, so keep it out
 # of every resolution; gpt-oss pulls it in transitively.
-exclude-dependencies = ["openai-harmony"]
+# Exclude opencv-python-headless and opencv-python as their bundled OpenSSL
+# breaks FIPS self-tests.
+exclude-dependencies = ["openai-harmony", "opencv-python-headless", "opencv-python"]

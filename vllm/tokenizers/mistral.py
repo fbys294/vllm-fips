@@ -29,6 +29,9 @@ from mistral_common.tokens.tokenizers.sentencepiece import (
     SentencePieceTokenizer,
 )
 from mistral_common.tokens.tokenizers.tekken import Tekkenizer
+import mistral_common.tokens.tokenizers.image as _mistral_image
+import numpy as np
+from PIL import Image
 from pydantic import ValidationError
 from transformers.tokenization_mistral_common import MistralCommonBackend
 
@@ -37,6 +40,21 @@ from vllm.exceptions import VLLMValidationError
 from vllm.logger import init_logger
 from vllm.renderers.chat_utils import ChatCompletionMessageParam
 from vllm.tokenizers.protocol import TokenizerLike
+
+
+def _pil_transform_image(
+    image: Image.Image, new_size: tuple[int, int]
+) -> np.ndarray:
+    resized = _mistral_image._convert_to_rgb(image).resize(
+        new_size, resample=Image.Resampling.BICUBIC
+    )
+    np_image = np.array(resized, dtype=np.float32)
+    return _mistral_image.normalize(
+        np_image, _mistral_image.DATASET_MEAN, _mistral_image.DATASET_STD
+    )
+
+
+_mistral_image.transform_image = _pil_transform_image
 
 if TYPE_CHECKING:
     import llguidance

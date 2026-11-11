@@ -481,7 +481,7 @@ def test_dummy_video_follows_size_hint() -> None:
         "duration": num_frames / 2.0,
         "total_num_frames": num_frames,
         "frames_indices": list(range(num_frames)),
-        "video_backend": "opencv",
+        "video_backend": "pyav",
         "do_sample_frames": False,
     }
     processed = processor(
@@ -559,7 +559,7 @@ def _build_qwen2_5_vl_video_mm_data(num_frames: int, fps: float) -> dict[str, An
         "duration": num_frames / fps,
         "total_num_frames": num_frames,
         "frames_indices": list(range(num_frames)),
-        "video_backend": "opencv",
+        "video_backend": "pyav",
         "do_sample_frames": False,
     }
     return {"video": [(video, metadata)]}

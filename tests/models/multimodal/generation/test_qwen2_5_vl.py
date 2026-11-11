@@ -197,7 +197,7 @@ def test_qwen2_5_vl_video_fits_max_model_len(vllm_runner, model) -> None:
         "duration": num_frames / 2.0,
         "total_num_frames": num_frames,
         "frames_indices": list(range(num_frames)),
-        "video_backend": "opencv",
+        "video_backend": "pyav",
         "do_sample_frames": False,
     }
     prompt = qwen2_5_vl_chat_template(VIDEO_PLACEHOLDER, "Describe the video.")
