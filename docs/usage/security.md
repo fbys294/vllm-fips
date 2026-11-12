@@ -448,7 +448,7 @@ FIPS compliance depends on many factors, so a vLLM deployment is not automatical
 
 Operators running vLLM on FIPS-enabled hosts should select FIPS-approved algorithms via the following knobs:
 
-- **Multimodal input hashing** — `--mm-hasher-algorithm` (config field `mm_hasher_algorithm`) defaults to `blake3`, which is not FIPS-approved. Set it to `sha256` or `sha512` in FIPS-enabled environments.
+- **Multimodal input hashing** — `--mm-hasher-algorithm` (config field `mm_hasher_algorithm`) defaults to `sha256` (FIPS-approved). `sha512` is also FIPS-approved; avoid setting `blake3` in FIPS-enabled environments.
 - **Prefix-cache hashing** — set `--prefix-caching-hash-algo` (config field `prefix_caching_hash_algo`) to `sha256` or `sha256_cbor`. The `xxhash` and `xxhash_cbor` options are not FIPS-approved.
 - **TLS ciphers** — use `--ssl-ciphers` to restrict the API server's TLS handshake to FIPS-approved cipher suites that match your environment's policy.
 
@@ -462,11 +462,12 @@ Some dependencies expose hash implementations that are not FIPS-approved. vLLM o
 
 - `blake3` — currently listed in `requirements/common.txt`, so a standard
   install pulls it in. It is imported lazily and only used when
-  `mm_hasher_algorithm=blake3` (the default). Setting
-  `--mm-hasher-algorithm sha256` or `--mm-hasher-algorithm sha512` is sufficient
-  to keep the non-FIPS code path dormant. If your policy additionally forbids
-  the package being present, uninstall it after installation; vLLM will
-  continue to function as long as a non-blake3 algorithm is selected.
+  `mm_hasher_algorithm=blake3` is explicitly configured (the default is
+  `sha256`). Keeping the default `sha256` or setting
+  `--mm-hasher-algorithm sha512` keeps the non-FIPS code path dormant. If your
+  policy additionally forbids the package being present, uninstall it after
+  installation; vLLM will continue to function as long as a non-blake3
+  algorithm is selected.
 - `xxhash` — a true optional dependency (not in `requirements/common.txt`). It is only imported when an `xxhash`-based prefix-cache algorithm is selected. Leave it uninstalled and select a `sha256`-based prefix-cache algorithm.
 
 ### Beyond hashing: other FIPS considerations

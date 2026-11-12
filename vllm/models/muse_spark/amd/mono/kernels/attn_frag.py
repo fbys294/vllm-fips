@@ -621,7 +621,7 @@ def make(NR, swa, maxk=VLLM_MAX_KEYS):
 with open(__file__, "rb") as _f:
     import hashlib as _hl
 
-    _SRC_HASH = _hl.sha1(_f.read()).hexdigest()[:12]
+    _SRC_HASH = _hl.sha256(_f.read()).hexdigest()[:12]
 
 
 def vllm_scale_word(scale):

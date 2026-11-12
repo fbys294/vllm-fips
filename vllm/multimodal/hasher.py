@@ -51,7 +51,7 @@ def _get_hasher_factory(
         algorithm: Hash algorithm name (blake3, sha256, or sha512)
 
     Returns a callable that creates a new hasher instance.
-    Supports blake3 (default), sha256, and sha512 for FIPS compliance.
+    Supports sha256 (default) and sha512 for FIPS compliance, as well as blake3.
 
     See: https://github.com/vllm-project/vllm/issues/18334
 

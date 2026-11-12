@@ -191,13 +191,12 @@ KV_CACHE_DTYPE_PREDICATES = {
 
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# MD5 of this script, recorded in the stamp so CMake can tell whether the files
-# on disk were produced by the current version (same MD5 as `file(MD5 ...)`).
+# SHA-256 of this script, recorded in the stamp so CMake can tell whether the files
+# on disk were produced by the current version (same SHA-256 as `file(SHA256 ...)`).
 # CMake passes the key it compares against so the format is defined in one place;
 # a manual run falls back to the hash above.
 with open(__file__, "rb") as _self:
-    # A cache key only: a FIPS-enforcing host rejects md5 without this flag.
-    SCRIPT_HASH = hashlib.md5(_self.read(), usedforsecurity=False).hexdigest()
+    SCRIPT_HASH = hashlib.sha256(_self.read()).hexdigest()
 KEY = sys.argv[1] if len(sys.argv) > 1 else SCRIPT_HASH
 STAMP_NAME = ".paged_attn_generated"
 

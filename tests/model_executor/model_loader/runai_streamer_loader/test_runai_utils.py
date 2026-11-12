@@ -48,10 +48,11 @@ def test_runai_pull_files_gcs(monkeypatch):
     model = ObjectStorageModel(gcs_url)
     model.pull_files(gcs_bucket, allow_pattern=[f"*{filename}"])
     # To re-generate / change URLs:
-    #   gsutil ls -L gs://<gcs-url> | grep "Hash (md5)" | tr -d ' ' \
-    #     | cut -d":" -f2 | base64 -d | xxd -p
-    expected_checksum = "f60dea775da1392434275b311b31a431"
-    hasher = hashlib.new("md5")
+    #   gsutil cat gs://<gcs-url> | sha256sum
+    expected_checksum = (
+        "a5d9daf6a65641c8c07697ad780e068c38edbd33d7df5395329fff6cc77f8dac"
+    )
+    hasher = hashlib.sha256()
     with open(os.path.join(model.dir, filename), "rb") as f:
         # Read the file in chunks to handle large files efficiently
         for chunk in iter(lambda: f.read(4096), b""):

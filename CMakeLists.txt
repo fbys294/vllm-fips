@@ -565,7 +565,7 @@ if(VLLM_GPU_LANG STREQUAL "CUDA" OR VLLM_GPU_LANG STREQUAL "HIP")
       # Generate sources:
       set(MACHETE_GEN_SCRIPT
         ${CMAKE_CURRENT_SOURCE_DIR}/csrc/quantization/machete/generate.py)
-      file(MD5 ${MACHETE_GEN_SCRIPT} MACHETE_GEN_SCRIPT_HASH)
+      file(SHA256 ${MACHETE_GEN_SCRIPT} MACHETE_GEN_SCRIPT_HASH)
 
       message(STATUS "Machete generation script hash: ${MACHETE_GEN_SCRIPT_HASH}")
       message(STATUS "Last run machete generate script hash: $CACHE{MACHETE_GEN_SCRIPT_HASH}")
@@ -675,7 +675,7 @@ if(VLLM_GPU_LANG STREQUAL "CUDA" OR VLLM_GPU_LANG STREQUAL "HIP")
       # Generate sources:
       set(MARLIN_GEN_SCRIPT
         ${CMAKE_CURRENT_SOURCE_DIR}/csrc/quantization/marlin/generate_kernels.py)
-      file(MD5 ${MARLIN_GEN_SCRIPT} MARLIN_GEN_SCRIPT_HASH)
+      file(SHA256 ${MARLIN_GEN_SCRIPT} MARLIN_GEN_SCRIPT_HASH)
       list(JOIN CUDA_ARCHS "," CUDA_ARCHS_STR)
       set(MARLIN_GEN_SCRIPT_HASH_AND_ARCH "${MARLIN_GEN_SCRIPT_HASH}(ARCH:${CUDA_ARCHS_STR})")
 
@@ -1455,7 +1455,7 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
     # Generate sources:
     set(MOE_MARLIN_GEN_SCRIPT
       ${CMAKE_CURRENT_SOURCE_DIR}/csrc/quantization/marlin/generate_kernels.py)
-    file(MD5 ${MOE_MARLIN_GEN_SCRIPT} MOE_MARLIN_GEN_SCRIPT_HASH)
+    file(SHA256 ${MOE_MARLIN_GEN_SCRIPT} MOE_MARLIN_GEN_SCRIPT_HASH)
     list(JOIN CUDA_ARCHS "," CUDA_ARCHS_STR)
     set(MOE_MARLIN_GEN_SCRIPT_HASH_AND_ARCH "${MOE_MARLIN_GEN_SCRIPT_HASH}(ARCH:${CUDA_ARCHS_STR})")
 
@@ -1654,7 +1654,7 @@ if(VLLM_GPU_LANG STREQUAL "HIP")
   # stale until something else triggers a reconfigure.
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     ${ROCM_ATTN_GEN_SCRIPT})
-  file(MD5 ${ROCM_ATTN_GEN_SCRIPT} ROCM_ATTN_GEN_SCRIPT_HASH)
+  file(SHA256 ${ROCM_ATTN_GEN_SCRIPT} ROCM_ATTN_GEN_SCRIPT_HASH)
   # The script records this key plus the exact list of files it wrote, in a stamp
   # next to the outputs; the list is what CMake uses as the source list, so a
   # stray `attention_paged_attn_*.cu` or a partially deleted set cannot slip in.
