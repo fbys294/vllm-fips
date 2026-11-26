@@ -8,12 +8,12 @@ This is a fork of VLLM
 ## Instructions:
 - mkdir vllm_fips
 - git clone ..
-- cd vllm_fips
+- cd vllm_fips/vllm
 - DOCKER_BUILDKIT=1 docker build . \
     --file docker/Dockerfile \
     --target vllm-openai \
     --build-arg VLLM_USE_PRECOMPILED=1 \
-    --build-arg VLLM_MERGE_BASE_COMMIT="2e6888ee879a29d511c81bd45f8265d92d0bafd9a5e52a6ceec6c0e25801475f" \
+    --build-arg VLLM_MERGE_BASE_COMMIT="$(git merge-base HEAD origin/main)" \
     --tag vllm-fips:v0.2
 
 ## To test if cv2 is removed and OpenSSL FIPS provider works:
