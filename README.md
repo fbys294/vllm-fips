@@ -5,7 +5,7 @@ This is a fork of VLLM
 - opencv-python-headless (cv2) is now completely absent from the image and PyAV (av) is handling all video operations.
 
 ---
-## Instructions:
+## Build Instructions:
 - mkdir vllm_fips
 - git clone ..
 - cd vllm_fips
@@ -13,8 +13,21 @@ This is a fork of VLLM
     --file docker/Dockerfile \
     --target vllm-openai \
     --build-arg VLLM_USE_PRECOMPILED=1 \
-    --build-arg VLLM_MERGE_BASE_COMMIT="2e6888ee879a29d511c81bd45f8265d92d0bafd9a5e52a6ceec6c0e25801475f" \
-    --tag vllm-fips:v0.2
+    --build-arg VLLM_MERGE_BASE_COMMIT="$(git merge-base HEAD origin/main)" \
+    --tag vllm-fips:latest
+
+  ## Run Instructions:
+docker run --rm --gpus all \
+    -v ~/.cache/huggingface:/root/.cache/huggingface \
+    -p 8000:8000 \
+    --ipc=host \
+    --env "HF_HUB_OFFLINE=1" \
+    --env "TRANSFORMERS_OFFLINE=1" \
+    --env "VLLM_NO_USAGE_STATS=1" \
+    ghcr.io/fbys294/vllm-fips:v0.3 \
+    <model-path-or-cached-repo-id>
+
+
 
 ## To test if cv2 is removed and OpenSSL FIPS provider works:
 docker run --rm --entrypoint bash vllm-fips:v0.2 -c '
