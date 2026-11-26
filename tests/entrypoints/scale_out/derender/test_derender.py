@@ -1697,7 +1697,7 @@ def _ensure_harmony_vocab():
 
     url = "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken"
     cache_dir = Path("/tmp/tiktoken-rs-cache")
-    cache_key = hashlib.sha1(url.encode()).hexdigest()
+    cache_key = hashlib.sha256(url.encode()).hexdigest()
     cache_file = cache_dir / cache_key
     if not cache_file.exists():
         cache_dir.mkdir(parents=True, exist_ok=True)

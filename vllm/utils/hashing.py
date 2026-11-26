@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import pickle
-from _hashlib import HASH, UnsupportedDigestmodError
+from _hashlib import HASH
 from collections.abc import Callable
 from typing import Any
 
@@ -104,8 +104,7 @@ def get_hash_fn_by_name(hash_fn_name: str) -> Callable[[Any], bytes]:
 
 
 def safe_hash(data: bytes, usedforsecurity: bool = True) -> HASH:
-    """Hash for configs, defaulting to md5 but falling back to sha256
-    in FIPS constrained environments.
+    """Hash for configs using FIPS 140-3 compliant SHA-256.
 
     Args:
         data: bytes
@@ -115,7 +114,4 @@ def safe_hash(data: bytes, usedforsecurity: bool = True) -> HASH:
         Hash object
 
     """
-    try:
-        return hashlib.md5(data, usedforsecurity=usedforsecurity)
-    except (UnsupportedDigestmodError, ValueError):
-        return hashlib.sha256(data)
+    return hashlib.sha256(data, usedforsecurity=usedforsecurity)

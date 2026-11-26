@@ -316,7 +316,7 @@ def prepare_codec_video_input(video_path: str) -> tuple:
     variance every video after the first would collide and skip the encoder.
     """
     path_str = str(video_path)
-    digest = hashlib.blake2b(path_str.encode("utf-8"), digest_size=16).digest()
+    digest = hashlib.sha256(path_str.encode("utf-8")).digest()[:16]
     dummy = np.frombuffer(digest, dtype=np.uint8).reshape(1, 1, 16, 1)
     dummy = np.broadcast_to(dummy, (1, 1, 16, 3)).copy()
     return (dummy, {_CODEC_VIDEO_MARKER: str(video_path)})

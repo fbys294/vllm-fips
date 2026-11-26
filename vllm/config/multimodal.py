@@ -368,9 +368,10 @@ class MultiModalConfig:
     mm_processor_cache_type: MMCacheType = "lru"
     """Type of cache to use for the multi-modal preprocessor/mapper. If `shm`,
     use shared memory FIFO cache. If `lru`, use mirrored LRU cache."""
-    mm_hasher_algorithm: MMHasherAlgorithm = "blake3"
-    """Hash algorithm to use for multi-modal input caching. Use `"sha256"` or
-    `"sha512"` for FIPS-compliant deployments."""
+    mm_hasher_algorithm: MMHasherAlgorithm = "sha256"
+    """Hash algorithm to use for multi-modal input caching. Defaults to
+    `"sha256"` for FIPS 140-3 compliance (`"sha512"` and `"blake3"` are also
+    supported)."""
     mm_shm_cache_max_object_size_mb: int = Field(default=128, ge=0)
     """Size limit (in MiB) for each object stored in the multi-modal processor
     shared memory cache. Only effective when `mm_processor_cache_type` is
